@@ -29,6 +29,7 @@ function getWebviewContent(modelUri) {
 	<meta charset="UTF-8">
 	<title>GLB Viewer</title>
 	<style>
+
 		body, html {
 			--background-color: #252526;
 			--background-color-alt: #444444;
@@ -38,6 +39,9 @@ function getWebviewContent(modelUri) {
 			width: 100vw; height: 100vh;
 			overflow: hidden;
 			display: flex;
+
+			scrollbar-color: var(--background-color-alt) var(--background-color);
+			scrollbar-width: thin;
 		}
 		.container {
 			position: relative;
@@ -64,11 +68,10 @@ function getWebviewContent(modelUri) {
 			flex-direction: column;
 			background: var(--background-color);
 			color: var(--text-color);
-			border-right: 1px solid var(--text-color);
 			max-height: 50%;
 			width: fit-content;
-			overflow-y: auto;
-			border: 1px solid var(--text-color);
+			border-radius: 4px;
+			overflow: hidden;
 		}
 
 		.tree-header {
@@ -78,7 +81,7 @@ function getWebviewContent(modelUri) {
 			background: var(--background-color);
 			cursor: move;
 			padding: 5px;
-			}
+		}
 		.tree-header:hover {
 			box-shadow: 0 0 8px rgba(0,0,0,0.2);
 			// border-bottom: 1px solid var(--text-color);
@@ -92,6 +95,8 @@ function getWebviewContent(modelUri) {
 			box-sizing: border-box;
 			height: 100%;
 			width: 200px;
+			overflow-y: auto;
+			overflow-x: hidden;
 		}
 
 		.tree-node {
@@ -119,6 +124,7 @@ function getWebviewContent(modelUri) {
 			justify-content: center;
 			margin-right: 4px;
 			transition: transform 0.1s ease;
+			flex-shrink: 0;
 		}
 
 		.tree-node__label {
@@ -127,6 +133,16 @@ function getWebviewContent(modelUri) {
 			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			min-width: 0;
+		}
+
+		.tree-node__action {
+			width: 16px;
+			height: 16px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-shrink: 0;
 		}
 
 		.tree-node__children {
@@ -173,7 +189,8 @@ function getWebviewContent(modelUri) {
 			color: var(--text-color);
 			font-family: monospace;
 			box-sizing: border-box;
-			border: 1px solid var(--text-color);
+			border-radius: 4px;
+			overflow: hidden;
 		}
 		.details__header {
 			padding: 5px 10px;
@@ -280,6 +297,7 @@ function getWebviewContent(modelUri) {
 		let offsetXDetails, offsetYDetails;
 		let isResizing = false;
 		let initialX = 0;
+		let selectedOutline;
 
 		$treeHeader.addEventListener('mousedown', (e) => {
 			isDragging = true;
@@ -304,7 +322,7 @@ function getWebviewContent(modelUri) {
 		document.addEventListener('mousemove', (e) => {
 			if (isResizing) {
 				const newWidth = e.clientX;
-				if (newWidth > 100 && newWidth < window.innerWidth - 100) {
+				if (newWidth > 200 && newWidth < window.innerWidth - 200) {
 					$tree.style.width = newWidth + 'px';
 				}
 			}
@@ -400,6 +418,8 @@ function getWebviewContent(modelUri) {
 			const ICON_ARROW_RIGHT = '<svg fill="none" viewBox="0 0 24 24" width="16" height="16"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 			const ICON_ARROW_DOWN = '<svg fill="none" viewBox="0 0 24 24" width="16" height="16"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 			const ICON_OBJECT = '<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"> <path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h4v4H7V7zm6 0h4v4h-4V7zm-6 6h4v4H7v-4zm6 0h4v4h-4v-4z" fill="currentColor"/> </svg>'
+			const ICON_OPEN_EYE = '<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"> <path d="M0 7h2v2H0V7zm4 4H2V9h2v2zm4 2v-2H4v2H2v2h2v-2h4zm8 0H8v2H6v2h2v-2h8v2h2v-2h-2v-2zm4-2h-4v2h4v2h2v-2h-2v-2zm2-2v2h-2V9h2zm0 0V7h2v2h-2z" fill="currentColor"/> </svg>'
+			const ICON_CLOSED_EYE = '<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"> <path d="M8 6h8v2H8V6zm-4 4V8h4v2H4zm-2 2v-2h2v2H2zm0 2v-2H0v2h2zm2 2H2v-2h2v2zm4 2H4v-2h4v2zm8 0v2H8v-2h8zm4-2v2h-4v-2h4zm2-2v2h-2v-2h2zm0-2h2v2h-2v-2zm-2-2h2v2h-2v-2zm0 0V8h-4v2h4zm-10 1h4v4h-4v-4z" fill="currentColor"/> </svg>'
 
 			const $node = document.createElement('div');
 			$node.className = 'tree-node';
@@ -409,6 +429,9 @@ function getWebviewContent(modelUri) {
 			$icon.className = 'tree-node__icon';
 			$icon.innerHTML = ICON_ARROW_RIGHT;
 
+			const $action = document.createElement('div');
+			$action.className = 'tree-node__action';
+
 			const $label = document.createElement('div');
 			$label.className = 'tree-node__label';
 			$label.textContent = object3d.name || object3d.type;
@@ -417,7 +440,7 @@ function getWebviewContent(modelUri) {
 			$labelWrapper.className = 'tree-node__label-wrapper';
 			$labelWrapper.appendChild($icon);
 			$labelWrapper.appendChild($label);
-
+			$labelWrapper.appendChild($action);
 			const $children = document.createElement('div');
 			$children.className = 'tree-node__children';
 			$children.style.display = 'none';
@@ -427,6 +450,7 @@ function getWebviewContent(modelUri) {
 			$container.appendChild($node);
 
 			if (object3d.children.length > 0) {
+				$action.classList.add('hidden');
 				object3d.children.forEach(child => {
 					buildHierarchyTree(child, $children, depth + 1);
 				});
@@ -438,7 +462,13 @@ function getWebviewContent(modelUri) {
 				};
 			} else {
 				$icon.innerHTML = ICON_OBJECT;
-				$labelWrapper.onclick = () => showObjectDetails(object3d);
+				$action.innerHTML = object3d.visible ? ICON_CLOSED_EYE : ICON_OPEN_EYE;
+				$action.onclick = () => {
+					object3d.visible = !object3d.visible;
+					$action.innerHTML = object3d.visible ? ICON_CLOSED_EYE : ICON_OPEN_EYE;
+				};
+				$label.onclick = () => showObjectDetails(object3d);
+				$icon.onclick = () => showObjectDetails(object3d);
 			}
 		}
 
@@ -449,6 +479,9 @@ function getWebviewContent(modelUri) {
 			const details = createDetailItem(obj3d);
 			details.forEach(detail => $details.appendChild(detail));
 			$detailsContainer.classList.remove('hidden');
+			if (obj3d.isObject3D || obj3d.isMesh) {
+				focusCameraOnObject(obj3d);
+			}
 		}
 
 		function createDetailItem(obj) {
@@ -479,6 +512,49 @@ function getWebviewContent(modelUri) {
 				details.push($detailsItem);
 			}
 			return details;
+		}
+
+
+		function highlightObject(obj) {
+			if (selectedOutline) {
+				scene.remove(selectedOutline);
+			}
+
+			const box = new THREE.Box3().setFromObject(obj);
+			const helper = new THREE.Box3Helper(box, 0xff0000);
+			selectedOutline = helper;
+			scene.add(helper);
+		}
+
+		function focusCameraOnObject(obj) {
+			const box = new THREE.Box3().setFromObject(obj);
+			const center = box.getCenter(new THREE.Vector3());
+			const size = box.getSize(new THREE.Vector3());
+
+			const maxDim = Math.max(size.x, size.y, size.z);
+			const fov = camera.fov * (Math.PI / 180);
+			const aspect = renderer.domElement.clientWidth / renderer.domElement.clientHeight;
+
+			const cameraDistance = maxDim / (2 * Math.tan(fov / 2));
+			const fitHeightDistance = cameraDistance;
+			const fitWidthDistance = cameraDistance / aspect;
+			const fitDistance = Math.max(fitHeightDistance, fitWidthDistance);
+
+			const direction = new THREE.Vector3();
+			camera.getWorldDirection(direction);
+			direction.negate();
+
+			const newPosition = center.clone().add(direction.multiplyScalar(fitDistance));
+
+			camera.position.copy(newPosition);
+			camera.near = fitDistance / 100;
+			camera.far = fitDistance * 100;
+			camera.updateProjectionMatrix();
+
+			if (typeof controls !== 'undefined') {
+				controls.target.copy(center);
+				controls.update();
+			}
 		}
 
 		function copyToClipboard(text) {
