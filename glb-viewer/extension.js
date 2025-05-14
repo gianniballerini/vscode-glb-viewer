@@ -462,6 +462,7 @@ function getWebviewContent(dataUri, scriptUri) {
 
 			const $action = document.createElement('div');
 			$action.className = 'tree-node__action';
+			$action.innerHTML = object3d.visible ? ICON_CLOSED_EYE : ICON_OPEN_EYE;
 
 			const $label = document.createElement('div');
 			$label.className = 'tree-node__label';
@@ -472,6 +473,7 @@ function getWebviewContent(dataUri, scriptUri) {
 			$labelWrapper.appendChild($icon);
 			$labelWrapper.appendChild($label);
 			$labelWrapper.appendChild($action);
+
 			const $children = document.createElement('div');
 			$children.className = 'tree-node__children';
 			$children.style.display = 'none';
@@ -480,8 +482,33 @@ function getWebviewContent(dataUri, scriptUri) {
 			$node.appendChild($children);
 			$container.appendChild($node);
 
+			// Function to toggle visibility of all children
+			const toggleChildrenVisibility = (parent, visible) => {
+				parent.visible = visible;
+				parent.children.forEach(child => {
+					child.visible = visible;
+					toggleChildrenVisibility(child, visible);
+				});
+			};
+
+			// Function to update eye icons for all children
+			const updateChildrenEyeIcons = (parent, visible) => {
+				const parentNode = parent.userData.treeNode;
+				if (parentNode) {
+					const actionIcon = parentNode.querySelector('.tree-node__action');
+					if (actionIcon) {
+						actionIcon.innerHTML = visible ? ICON_CLOSED_EYE : ICON_OPEN_EYE;
+					}
+				}
+				parent.children.forEach(child => {
+					updateChildrenEyeIcons(child, visible);
+				});
+			};
+
+			// Store reference to DOM node in the 3D object
+			object3d.userData.treeNode = $node;
+
 			if (object3d.children.length > 0) {
-				$action.classList.add('hidden');
 				object3d.children.forEach(child => {
 					buildHierarchyTree(child, $children, depth + 1);
 				});
@@ -491,16 +518,25 @@ function getWebviewContent(dataUri, scriptUri) {
 					$children.style.display = isCollapsed ? 'block' : 'none';
 					$icon.innerHTML = isCollapsed ? ICON_ARROW_DOWN : ICON_ARROW_RIGHT;
 				};
+
+				// Add click handler for the eye icon
+				$action.onclick = (e) => {
+					e.stopPropagation(); // Prevent triggering the label click
+					const newVisibility = !object3d.visible;
+					toggleChildrenVisibility(object3d, newVisibility);
+					updateChildrenEyeIcons(object3d, newVisibility);
+				};
 			} else {
 				$icon.innerHTML = ICON_OBJECT;
-				$action.innerHTML = object3d.visible ? ICON_CLOSED_EYE : ICON_OPEN_EYE;
-				$action.onclick = () => {
+				$action.onclick = (e) => {
+					e.stopPropagation(); // Prevent triggering the label click
 					object3d.visible = !object3d.visible;
 					$action.innerHTML = object3d.visible ? ICON_CLOSED_EYE : ICON_OPEN_EYE;
 				};
-				$label.onclick = () => showObjectDetails(object3d);
-				$icon.onclick = () => showObjectDetails(object3d);
 			}
+
+			$label.onclick = () => showObjectDetails(object3d);
+			$icon.onclick = () => showObjectDetails(object3d);
 		}
 
 		function showObjectDetails(obj3d) {
