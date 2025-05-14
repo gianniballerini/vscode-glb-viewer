@@ -11,34 +11,22 @@
   ],
   "main": "./extension.js",
   "activationEvents": [
-    "onLanguage:plaintext",
     "onFileSystem:file",
     "onFileSystem:vsls",
-    "onCommand:extension.viewGLB"
+    "onCommand:extension.viewGLB",
+    "onCustomEditor:glbViewer.customEditor"
   ],
   "contributes": {
-    "commands": [
+    "customEditors": [
       {
-        "command": "extension.viewGLB",
-        "title": "View .glb Model"
+        "viewType": "glbViewer.customEditor",
+        "displayName": "GLB Viewer",
+        "selector": [
+          { "filenamePattern": "*.glb" }
+        ],
+        "priority": "option"
       }
-    ],
-    "menus": {
-      "explorer/context": [
-      {
-        "when": "resourceExtname == .glb",
-        "command": "extension.viewGLB",
-        "group": "navigation"
-      }
-      ],
-      "editor/title": [
-        {
-          "when": "resourceExtname == .glb",
-          "command": "extension.viewGLB",
-          "group": "navigation"
-        }
-      ]
-    }
+    ]
   },
   "scripts": {
     "lint": "eslint .",

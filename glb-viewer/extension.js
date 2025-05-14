@@ -2,27 +2,58 @@ const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
 
-function activate(context) {
-	let disposable = vscode.commands.registerCommand('extension.viewGLB', (uri) => {
-		const panel = vscode.window.createWebviewPanel(
-			'glbViewer',
-			`GLB Viewer - ${path.basename(uri.fsPath)}`,
-			vscode.ViewColumn.One,
-			{
-				enableScripts: true,
-				localResourceRoots: [vscode.Uri.file(path.dirname(uri.fsPath))]
-			}
-		);
+class GLBDocument {
+	constructor(uri) {
+		this.uri = uri;
+	}
 
-		const modelUri = panel.webview.asWebviewUri(vscode.Uri.file(uri.fsPath));
+	dispose() {
 
-		panel.webview.html = getWebviewContent(modelUri.toString());
-	});
-
-	context.subscriptions.push(disposable);
+	}
 }
 
-function getWebviewContent(modelUri) {
+function activate(context) {
+	const provider = {
+		async openCustomDocument(uri, openContext, token) {
+			return new GLBDocument(uri);
+		},
+
+		async resolveCustomEditor(document, webviewPanel, _token) {
+
+			const fileData = await vscode.workspace.fs.readFile(document.uri);
+
+
+			const base64Data = Buffer.from(fileData).toString('base64');
+			const dataUri = `data:application/octet-stream;base64,${base64Data}`;
+
+			const modelUri = webviewPanel.webview.asWebviewUri(document.uri);
+			const scriptUri = webviewPanel.webview.asWebviewUri(
+				vscode.Uri.file(path.join(context.extensionPath, 'media', 'viewer.js'))
+			);
+
+			webviewPanel.webview.options = {
+				enableScripts: true,
+				localResourceRoots: [vscode.Uri.file(path.dirname(document.uri.fsPath))]
+			};
+
+			webviewPanel.webview.html = getWebviewContent(dataUri, scriptUri);
+		}
+	};
+
+	context.subscriptions.push(
+		vscode.window.registerCustomEditorProvider(
+			'glbViewer.customEditor',
+			provider,
+			{
+				webviewOptions: {
+					retainContextWhenHidden: true
+				}
+			}
+		)
+	);
+}
+
+function getWebviewContent(dataUri, scriptUri) {
 	return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -84,7 +115,7 @@ function getWebviewContent(modelUri) {
 		}
 		.tree-header:hover {
 			box-shadow: 0 0 8px rgba(0,0,0,0.2);
-			// border-bottom: 1px solid var(--text-color);
+
 			background: var(--background-color-alt);
 		}
 		.tree {
@@ -330,7 +361,7 @@ function getWebviewContent(modelUri) {
 				const newX = e.clientX - offsetX;
 				const newY = e.clientY - offsetY;
 
-				// Keep the container within window bounds
+
 				const maxX = window.innerWidth - $treeContainer.offsetWidth;
 				const maxY = window.innerHeight - $treeContainer.offsetHeight;
 
@@ -383,7 +414,7 @@ function getWebviewContent(modelUri) {
 		};
 
 		const loader = new GLTFLoader();
-		loader.load("${modelUri}", function (gltf) {
+		loader.load("${dataUri}", function (gltf) {
 			console.log("GLB loaded", gltf);
 			scene.add(gltf.scene);
 
@@ -395,7 +426,7 @@ function getWebviewContent(modelUri) {
 			camera.position.z += size * 1.5;
 			camera.lookAt(center);
 
-			renderer.setClearColor(0xeeeeee, 1); // Light gray background
+			renderer.setClearColor(0xeeeeee, 1);
 
 			const grid = new THREE.GridHelper(10, 10);
 			scene.add(grid);
@@ -493,14 +524,14 @@ function getWebviewContent(modelUri) {
 				const key = relevant_keys[i];
 				let value = obj[key];
 
-				// Format different types of objects
+
 				if (value && typeof value === 'object') {
 					switch (true) {
 						case value.isVector3:
-							value = '(' + value.x.toFixed(2) + ', ' + value.y.toFixed(2) + ', ' + value.z.toFixed(2) + ')';
+							value = value.x.toFixed(2) + ', ' + value.y.toFixed(2) + ', ' + value.z.toFixed(2);
 							break;
 						case value.isEuler:
-							value = '(' + value.x.toFixed(2) + ', ' + value.y.toFixed(2) + ', ' + value.z.toFixed(2) + ')';
+							value = value.x.toFixed(2) + ', ' + value.y.toFixed(2) + ', ' + value.z.toFixed(2);
 							break;
 						default:
 							value = JSON.stringify(value);
@@ -527,31 +558,32 @@ function getWebviewContent(modelUri) {
 		}
 
 		function focusCameraOnObject(obj) {
+
 			const box = new THREE.Box3().setFromObject(obj);
 			const center = box.getCenter(new THREE.Vector3());
-			const size = box.getSize(new THREE.Vector3());
 
-			const maxDim = Math.max(size.x, size.y, size.z);
-			const fov = camera.fov * (Math.PI / 180);
+			const size = box.getSize(new THREE.Vector3());
+			const boundingSphereRadius = size.length() / 2;
+
+			const fov = THREE.MathUtils.degToRad(camera.fov);
 			const aspect = renderer.domElement.clientWidth / renderer.domElement.clientHeight;
 
-			const cameraDistance = maxDim / (2 * Math.tan(fov / 2));
-			const fitHeightDistance = cameraDistance;
-			const fitWidthDistance = cameraDistance / aspect;
-			const fitDistance = Math.max(fitHeightDistance, fitWidthDistance);
+			const distanceForHeight = boundingSphereRadius / Math.sin(fov / 2);
+			const distanceForWidth = boundingSphereRadius / Math.sin(Math.atan(Math.tan(fov / 2) * aspect));
+			const fitDistance = Math.max(distanceForHeight, distanceForWidth) * 1.2;
 
 			const direction = new THREE.Vector3();
 			camera.getWorldDirection(direction);
 			direction.negate();
 
 			const newPosition = center.clone().add(direction.multiplyScalar(fitDistance));
-
 			camera.position.copy(newPosition);
+
 			camera.near = fitDistance / 100;
 			camera.far = fitDistance * 100;
 			camera.updateProjectionMatrix();
 
-			if (typeof controls !== 'undefined') {
+			if (controls) {
 				controls.target.copy(center);
 				controls.update();
 			}
