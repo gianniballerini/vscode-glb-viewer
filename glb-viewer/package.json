@@ -1,0 +1,56 @@
+{
+  "name": "glb-viewer",
+  "displayName": "glb_viewer",
+  "description": "Quickly look at the hierachy tree and properties of a GLB.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:plaintext",
+    "onFileSystem:file",
+    "onFileSystem:vsls",
+    "onCommand:extension.viewGLB"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "extension.viewGLB",
+        "title": "View .glb Model"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+      {
+        "when": "resourceExtname == .glb",
+        "command": "extension.viewGLB",
+        "group": "navigation"
+      }
+      ],
+      "editor/title": [
+        {
+          "when": "resourceExtname == .glb",
+          "command": "extension.viewGLB",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "yarn run lint",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "eslint": "^9.25.1",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
