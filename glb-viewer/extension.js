@@ -45,6 +45,9 @@ function getWebviewContent(modelUri) {
 			width: 100%;
 			height: 100%;
 		}
+		div.hidden {
+			display: none;
+		}
 		.hidden {
 			display: none;
 		}
@@ -67,6 +70,7 @@ function getWebviewContent(modelUri) {
 			overflow-y: auto;
 			border: 1px solid var(--text-color);
 		}
+
 		.tree-header {
 			display: flex;
 			align-items: center;
@@ -89,10 +93,46 @@ function getWebviewContent(modelUri) {
 			height: 100%;
 			width: 200px;
 		}
+
 		.tree-node {
-			cursor: pointer;
-			padding: 5px;
+			font-family: monospace;
+			user-select: none;
 		}
+
+		.tree-node__label-wrapper {
+			display: flex;
+			align-items: center;
+			cursor: pointer;
+			padding: 2px 4px;
+			border-radius: 4px;
+		}
+
+		.tree-node__label-wrapper:hover {
+			background-color: var(--background-color-alt);
+		}
+
+		.tree-node__icon {
+			width: 16px;
+			height: 16px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			margin-right: 4px;
+			transition: transform 0.1s ease;
+		}
+
+		.tree-node__label {
+			flex-grow: 1;
+			font-size: 13px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.tree-node__children {
+			margin-left: 0; /* padding handled by depth * 10px */
+		}
+
 		.splitter {
 			position: absolute;
 			top: 0;
@@ -136,12 +176,17 @@ function getWebviewContent(modelUri) {
 			border: 1px solid var(--text-color);
 		}
 		.details__header {
-			padding: 10px 10px 5px 10px;
+			padding: 5px 10px;
 			display: flex;
+			border-bottom: 1px solid var(--background-color);
 			flex-direction: row;
 			justify-content: space-between;
 			align-items: center;
 			cursor: move;
+		}
+		.details__header:hover {
+			box-shadow: 0 0 8px rgba(0,0,0,0.2);
+			border-bottom: 1px solid var(--background-color-alt);
 		}
 		.details__header-title {
 			font-size: 14px;
@@ -189,7 +234,9 @@ function getWebviewContent(modelUri) {
 			<div class="tree-header">
 				Hierarchy
 			</div>
-			<div class="tree"></div>
+			<div class="tree">
+				<!-- Tree will be populated here -->
+			</div>
 			<div class="splitter">
 				<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"> <path d="M15 9V7h2v2h-2zm2 6v-2h-4v-2h4V9h2v2h2v2h-2v2h-2zm0 0v2h-2v-2h2zm-6-4v2H7v2H5v-2H3v-2h2V9h2v2h4zm-4 4h2v2H7v-2zm2-8v2H7V7h2z" fill="currentColor"/> </svg>
 			</div>
@@ -349,18 +396,49 @@ function getWebviewContent(modelUri) {
 			renderer.render(scene, camera);
 		}
 
-		function buildHierarchyTree(object3d, container) {
-			const node = document.createElement('div');
-			node.textContent = object3d.name || object3d.type;
-			node.className = 'tree-node';
-			node.onclick = () => showObjectDetails(object3d);
-			container.appendChild(node);
+		function buildHierarchyTree(object3d, $container, depth = 0) {
+			const ICON_ARROW_RIGHT = '<svg fill="none" viewBox="0 0 24 24" width="16" height="16"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+			const ICON_ARROW_DOWN = '<svg fill="none" viewBox="0 0 24 24" width="16" height="16"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+			const ICON_OBJECT = '<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"> <path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h4v4H7V7zm6 0h4v4h-4V7zm-6 6h4v4H7v-4zm6 0h4v4h-4v-4z" fill="currentColor"/> </svg>'
+
+			const $node = document.createElement('div');
+			$node.className = 'tree-node';
+			$node.style.paddingLeft = depth * 10 + 'px';
+
+			const $icon = document.createElement('div');
+			$icon.className = 'tree-node__icon';
+			$icon.innerHTML = ICON_ARROW_RIGHT;
+
+			const $label = document.createElement('div');
+			$label.className = 'tree-node__label';
+			$label.textContent = object3d.name || object3d.type;
+
+			const $labelWrapper = document.createElement('div');
+			$labelWrapper.className = 'tree-node__label-wrapper';
+			$labelWrapper.appendChild($icon);
+			$labelWrapper.appendChild($label);
+
+			const $children = document.createElement('div');
+			$children.className = 'tree-node__children';
+			$children.style.display = 'none';
+
+			$node.appendChild($labelWrapper);
+			$node.appendChild($children);
+			$container.appendChild($node);
 
 			if (object3d.children.length > 0) {
-				const childContainer = document.createElement('div');
-				childContainer.style.marginLeft = '1em';
-				container.appendChild(childContainer);
-				object3d.children.forEach(child => buildHierarchyTree(child, childContainer));
+				object3d.children.forEach(child => {
+					buildHierarchyTree(child, $children, depth + 1);
+				});
+
+				$labelWrapper.onclick = () => {
+					const isCollapsed = $children.style.display === 'none';
+					$children.style.display = isCollapsed ? 'block' : 'none';
+					$icon.innerHTML = isCollapsed ? ICON_ARROW_DOWN : ICON_ARROW_RIGHT;
+				};
+			} else {
+				$icon.innerHTML = ICON_OBJECT;
+				$labelWrapper.onclick = () => showObjectDetails(object3d);
 			}
 		}
 
