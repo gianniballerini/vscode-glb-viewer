@@ -1,10 +1,14 @@
 {
   "name": "glb-viewer",
   "displayName": "glb_viewer",
-  "description": "Quickly look at the hierachy tree and properties of a GLB.",
-  "version": "0.0.1",
+  "description": "Quickly look at the hierarchy tree and properties of a GLB.",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.100.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gianniballerini/vscode-glb-viewer"
   },
   "categories": [
     "Other"
